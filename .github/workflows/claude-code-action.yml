@@ -1,0 +1,76 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # 리뷰 설정
+          model: claude-sonnet-4-5
+          max_tokens: 8192
+
+          # 리뷰 범위
+          include_patterns: |
+            src/**/*.ts
+            src/**/*.tsx
+            prisma/**/*.prisma
+
+          exclude_patterns: |
+            **/node_modules/**
+            **/*.test.ts
+            **/*.test.tsx
+            **/dist/**
+            **/.next/**
+
+          # 리뷰 지침
+          instructions: |
+            이 프로젝트는 UIGen - AI 기반 React 컴포넌트 생성기입니다.
+
+            다음 관점에서 코드를 검토해주세요:
+
+            1. **Virtual File System**:
+               - 직렬화/역직렬화 로직의 안전성
+               - 파일 시스템 작업의 원자성
+
+            2. **API & Streaming**:
+               - 커스텀 스트리밍 프로토콜 (0:, 1:) 처리
+               - Anthropic API 통합의 정확성
+               - 에러 핸들링
+
+            3. **타입 안전성**:
+               - TypeScript 타입 정의
+               - any 타입 최소화
+
+            4. **보안**:
+               - 인증/인가 로직
+               - SQL injection 방지 (Prisma)
+               - XSS 방지
+
+            5. **성능**:
+               - 불필요한 리렌더링
+               - 메모리 누수 가능성
+
+            6. **테스트**:
+               - 중요한 로직의 테스트 커버리지
+
+            긍정적인 부분도 언급하고, 개선이 필요한 부분은 구체적인 제안과 함께 알려주세요.
