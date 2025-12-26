@@ -1,0 +1,170 @@
+import type { FileNode } from "@/lib/file-system";
+import { VirtualFileSystem } from "@/lib/file-system";
+import { streamText } from "ai";
+import { buildStrReplaceTool } from "@/lib/tools/str-replace";
+import { buildFileManagerTool } from "@/lib/tools/file-manager";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { getLanguageModel, MockLanguageModel } from "@/lib/provider";
+import { generationPrompt } from "@/lib/prompts/generation";
+
+export async function POST(req: Request) {
+  console.log('\n[CHAT API] ==================== Request Start ====================');
+  console.log('[CHAT API] Timestamp:', new Date().toISOString());
+  console.log('[CHAT API] URL:', req.url);
+  console.log('[CHAT API] Method:', req.method);
+
+  const {
+    messages,
+    files,
+    projectId,
+  }: { messages: any[]; files?: Record<string, FileNode>; projectId?: string } =
+    await req.json();
+
+  console.log('[CHAT API] Parsed body:', {
+    messagesCount: messages?.length,
+    lastMessage: messages?.[messages.length - 1]?.content,
+    filesCount: files ? Object.keys(files).length : 0,
+    projectId
+  });
+
+  // AI SDK v6: Convert message format if needed
+  // @ai-sdk/react sends messages with 'parts' structure, but streamText expects 'content'
+  const normalizedMessages = messages.map((msg: any) => {
+    if (msg.parts && !msg.content) {
+      // Convert parts to content and remove parts field
+      const textParts = msg.parts.filter((p: any) => p.type === 'text');
+      const { parts, ...rest } = msg; // Remove parts field
+      return {
+        ...rest,
+        content: textParts.map((p: any) => p.text).join(''),
+      };
+    }
+    return msg;
+  });
+
+  console.log('[CHAT API] Normalized last message content:', normalizedMessages[normalizedMessages.length - 1]?.content);
+
+  // Reconstruct the VirtualFileSystem from serialized data
+  const fileSystem = new VirtualFileSystem();
+  if (files && typeof files === 'object' && Object.keys(files).length > 0) {
+    try {
+      fileSystem.deserializeFromNodes(files);
+    } catch (error) {
+      console.error("Failed to deserialize files:", error);
+      // Continue with empty file system
+    }
+  }
+
+  // Get model first so we can check its provider
+  const model = getLanguageModel();
+  console.log('[CHAT API] Model selected:', {
+    provider: model.provider,
+    modelId: model.modelId
+  });
+
+  // Use fewer steps for mock provider to prevent repetition
+  const isMockProvider = model.provider === "mock";
+  console.log('[CHAT API] Is mock provider:', isMockProvider);
+
+  // Add system message with provider-specific options only for real providers
+  const systemMessage: any = {
+    role: "system",
+    content: generationPrompt,
+  };
+
+  // Only add Anthropic-specific options if using real Anthropic model
+  if (!isMockProvider) {
+    systemMessage.providerOptions = {
+      anthropic: { cacheControl: { type: "ephemeral" } },
+    };
+  }
+
+  normalizedMessages.unshift(systemMessage);
+
+  try {
+    console.log('[CHAT API] Creating streamText...');
+    const result = streamText({
+      model,
+      messages: normalizedMessages,
+      maxTokens: 10_000,
+      maxSteps: isMockProvider ? 4 : 40,
+      onError: (err: any) => {
+        console.error("=== Streaming error ===");
+        console.error("Error type:", err?.constructor?.name);
+        console.error("Error message:", err?.message);
+        console.error("Full error:", err);
+        console.error("======================");
+
+        // AI SDK v6는 onError에서 throw한 에러를 클라이언트로 전달함
+        throw err;
+      },
+      tools: {
+        str_replace_editor: buildStrReplaceTool(fileSystem),
+        file_manager: buildFileManagerTool(fileSystem),
+      },
+      onFinish: async ({ response }) => {
+        // Save to project if projectId is provided and user is authenticated
+        if (projectId) {
+          try {
+            // Check if user is authenticated
+            const session = await getSession();
+            if (!session) {
+              console.error("User not authenticated, cannot save project");
+              return;
+            }
+
+            // Get the messages from the response
+            const responseMessages = response.messages || [];
+            // Combine original messages with response messages
+            // Filter out system messages and combine with response messages
+            const userMessages = normalizedMessages.filter((m) => m.role !== "system");
+            const allMessages = [...userMessages, ...responseMessages];
+
+            await prisma.project.update({
+              where: {
+                id: projectId,
+                userId: session.userId,
+              },
+              data: {
+                messages: JSON.stringify(allMessages),
+                data: JSON.stringify(fileSystem.serialize()),
+              },
+            });
+          } catch (error) {
+            console.error("Failed to save project data:", error);
+          }
+        }
+      },
+    });
+
+    console.log('[CHAT API] streamText created successfully');
+    console.log('[CHAT API] Converting to TextStreamResponse...');
+
+    const response = result.toTextStreamResponse();
+    console.log('[CHAT API] Response created, returning to client');
+    console.log('[CHAT API] ==================== Request End (Success) ====================\n');
+
+    return response;
+  } catch (error) {
+    console.error("=== Error creating stream response ===");
+    console.error("Error type:", error?.constructor?.name);
+    console.error("Error message:", error instanceof Error ? error.message : String(error));
+    console.error("Stack trace:", error instanceof Error ? error.stack : "N/A");
+    console.error("=====================================");
+
+    return new Response(
+      JSON.stringify({
+        error: "Failed to generate AI response. Please check your API configuration.",
+        details: error instanceof Error ? error.message : String(error),
+        hint: "If you're using an API key, please verify it's valid. Otherwise, the mock provider will be used automatically."
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+}
+
+export const maxDuration = 120;

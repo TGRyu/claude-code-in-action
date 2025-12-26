@@ -1,0 +1,41 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e5]:
+      - heading "React Component Generator" [level=1] [ref=e7]
+      - generic [ref=e9]:
+        - generic [ref=e15]:
+          - generic [ref=e18]: Create a simple counter component
+          - img [ref=e21]
+        - paragraph [ref=e25]: ⚠️ AI 응답 생성 실패. Failed to fetch
+        - generic [ref=e28]:
+          - textbox "Describe the React component you want to create..." [disabled] [ref=e29]
+          - button [disabled] [ref=e30]:
+            - img [ref=e31]
+    - separator [ref=e34]
+    - generic [ref=e36]:
+      - generic [ref=e37]:
+        - tablist [ref=e39]:
+          - tab "Preview" [selected] [ref=e40]
+          - tab "Code" [ref=e41]
+        - generic [ref=e42]:
+          - button "Sign In" [ref=e43]
+          - button "Sign Up" [ref=e44]
+      - generic [ref=e48]:
+        - img [ref=e50]
+        - heading "Welcome to UI Generator" [level=3] [ref=e52]
+        - paragraph [ref=e53]: Start building React components with AI assistance
+        - paragraph [ref=e54]: Ask the AI to create your first component to see it live here
+  - generic [ref=e60] [cursor=pointer]:
+    - button "Open issues overlay" [ref=e61]:
+      - img [ref=e63]
+      - generic [ref=e65]:
+        - generic [ref=e66]: "0"
+        - generic [ref=e67]: "1"
+      - generic [ref=e68]: Issue
+    - button "Collapse issues badge" [ref=e69]:
+      - img [ref=e70]
+  - alert [ref=e72]
+```
