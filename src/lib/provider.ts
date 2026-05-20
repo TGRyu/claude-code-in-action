@@ -67,7 +67,10 @@ export class MockLanguageModel implements LanguageModelV1 {
     let componentType = "counter";
     let componentName = "Counter";
 
-    if (promptLower.includes("form")) {
+    if (promptLower.includes("세차") || promptLower.includes("car wash") || promptLower.includes("transportation")) {
+      componentType = "carwash";
+      componentName = "CarWashTransport";
+    } else if (promptLower.includes("form")) {
       componentType = "form";
       componentName = "ContactForm";
     } else if (promptLower.includes("card")) {
@@ -282,6 +285,125 @@ const ContactForm = () => {
 
 export default ContactForm;`;
 
+      case "carwash":
+        return `import { useState } from 'react';
+
+const CarWashTransport = () => {
+  const [distance, setDistance] = useState(50);
+  const [purpose, setPurpose] = useState('wash');
+
+  const getRecommendation = () => {
+    if (purpose === 'wash') {
+      return {
+        method: 'drive',
+        icon: '🚗',
+        title: '운전해서 가세요',
+        reason: '세차할 차를 직접 가져가야 합니다.',
+        color: 'blue',
+      };
+    }
+    if (distance <= 500) {
+      return {
+        method: 'walk',
+        icon: '🚶',
+        title: '걸어가세요',
+        reason: \`\${distance}m는 도보 약 \${Math.ceil(distance / 80)}분 거리입니다.\`,
+        color: 'green',
+      };
+    }
+    return {
+      method: 'drive',
+      icon: '🚗',
+      title: '운전해서 가세요',
+      reason: \`\${distance}m는 걷기엔 먼 거리입니다.\`,
+      color: 'blue',
+    };
+  };
+
+  const rec = getRecommendation();
+  const bgColor = rec.color === 'green' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200';
+  const textColor = rec.color === 'green' ? 'text-green-700' : 'text-blue-700';
+  const badgeColor = rec.color === 'green' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
+
+  return (
+    <div className="max-w-md mx-auto p-6 bg-white rounded-2xl shadow-lg">
+      <h2 className="text-2xl font-bold mb-1 text-gray-900">세차장 교통수단 추천</h2>
+      <p className="text-sm text-gray-500 mb-6">거리와 목적에 맞는 이동 방법을 알려드려요</p>
+
+      <div className="space-y-4 mb-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            목적
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPurpose('wash')}
+              className={\`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all \${
+                purpose === 'wash'
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }\`}
+            >
+              🧽 세차하러
+            </button>
+            <button
+              onClick={() => setPurpose('supply')}
+              className={\`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all \${
+                purpose === 'supply'
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }\`}
+            >
+              🧴 용품 구매
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            거리: <span className="font-bold text-gray-900">{distance}m</span>
+          </label>
+          <input
+            type="range"
+            min="10"
+            max="2000"
+            step="10"
+            value={distance}
+            onChange={(e) => setDistance(Number(e.target.value))}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+          />
+          <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <span>10m</span>
+            <span>1km</span>
+            <span>2km</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={\`p-5 rounded-xl border-2 \${bgColor} transition-all\`}>
+        <div className="flex items-center gap-3 mb-2">
+          <span className="text-3xl">{rec.icon}</span>
+          <div>
+            <span className={\`inline-block px-2 py-0.5 rounded-full text-xs font-semibold \${badgeColor} mb-1\`}>
+              {rec.method === 'drive' ? '운전' : '도보'} 추천
+            </span>
+            <h3 className={\`text-lg font-bold \${textColor}\`}>{rec.title}</h3>
+          </div>
+        </div>
+        <p className={\`text-sm \${textColor} opacity-80\`}>{rec.reason}</p>
+      </div>
+
+      {purpose === 'wash' && (
+        <p className="mt-4 text-xs text-gray-400 text-center">
+          💡 세차 목적이라면 거리와 관계없이 차를 가져가야 합니다
+        </p>
+      )}
+    </div>
+  );
+};
+
+export default CarWashTransport;`;
+
       case "card":
         return `import React from 'react';
 
@@ -367,6 +489,8 @@ export default Counter;`;
 
   private getOldStringForReplace(componentType: string): string {
     switch (componentType) {
+      case "carwash":
+        return "      <p className=\"text-sm text-gray-500 mb-6\">거리와 목적에 맞는 이동 방법을 알려드려요</p>";
       case "form":
         return "    console.log('Form submitted:', formData);";
       case "card":
@@ -378,6 +502,8 @@ export default Counter;`;
 
   private getNewStringForReplace(componentType: string): string {
     switch (componentType) {
+      case "carwash":
+        return "      <p className=\"text-sm text-gray-500 mb-6\">거리와 목적에 맞는 최적의 이동 방법을 알려드려요 ✨</p>";
       case "form":
         return "    console.log('Form submitted:', formData);\n    alert('Thank you! We\\'ll get back to you soon.');";
       case "card":
@@ -388,6 +514,18 @@ export default Counter;`;
   }
 
   private getAppCode(componentName: string): string {
+    if (componentName === "CarWashTransport") {
+      return `import CarWashTransport from '@/components/CarWashTransport';
+
+export default function App() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center p-8">
+      <CarWashTransport />
+    </div>
+  );
+}`;
+    }
+
     if (componentName === "Card") {
       return `import Card from '@/components/Card';
 
